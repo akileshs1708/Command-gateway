@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Command Gateway System</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        .tab-active {
+            border-bottom: 3px solid #3b82f6;
+            color: #3b82f6;
+        }
+        .status-executed { background-color: #10b981; }
+        .status-accepted { background-color: #3b82f6; }
+        .status-rejected { background-color: #ef4444; }
+        .toast {
+            animation: slideIn 0.3s ease-out, fadeOut 0.3s ease-in 2.7s forwards;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        .modal-backdrop {
+            background: rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+    <!-- Login Modal -->
+    <div id="login-modal" class="fixed inset-0 modal-backdrop flex items-center justify-center z-40">
+        <div class="bg-gray-800 rounded-xl p-8 w-full max-w-md shadow-2xl border border-gray-700">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                </div>
+                <h1 class="text-2xl font-bold">Command Gateway</h1>
+                <p class="text-gray-400 mt-2">Enter your API key to continue</p>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">API Key</label>
+                    <input type="text" id="api-key-input" placeholder="Enter your API key" 
+                        class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <button onclick="handleLogin()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold transition">
+                    Authenticate
+                </button>
+                <div class="text-center text-sm text-gray-400">
+                    <p>Default Admin Key: <code class="bg-gray-700 px-2 py-1 rounded">admin-key-12345</code></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="main-app" class="hidden">
+        <!-- Header -->
+        <header class="bg-gray-800 border-b border-gray-700 px-6 py-4">
+            <div class="max-w-7xl mx-auto flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold">Command Gateway</h1>
+                        <p class="text-sm text-gray-400">Secure Command Execution System</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-6">
+                    <div class="text-right">
+                        <p class="text-sm text-gray-400">Logged in as</p>
+                        <p class="font-semibold" id="current-user">Admin</p>
+                    </div>
+                    <div class="bg-gray-700 px-4 py-2 rounded-lg">
+                        <p class="text-xs text-gray-400">Credits</p>
+                        <p class="text-xl font-bold text-green-400" id="credit-display">100</p>
+                    </div>
+                    <span id="role-badge" class="px-3 py-1 bg-purple-600 rounded-full text-sm font-medium">Admin</span>
+                    <button onclick="handleLogout()" class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition">
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="bg-gray-800 border-b border-gray-700">
+            <div class="max-w-7xl mx-auto px-6">
+                <div class="flex space-x-8">
+                    <button onclick="switchTab('commands')" id="tab-commands" class="py-4 px-2 tab-active font-medium">
+                        Commands
+                    </button>
+                    <button onclick="switchTab('history')" id="tab-history" class="py-4 px-2 text-gray-400 hover:text-white font-medium">
+                        History
+                    </button>
+                    <button onclick="switchTab('rules')" id="tab-rules" class="py-4 px-2 text-gray-400 hover:text-white font-medium admin-only">
+                        Rules
+                    </button>
+                    <button onclick="switchTab('users')" id="tab-users" class="py-4 px-2 text-gray-400 hover:text-white font-medium admin-only">
+                        Users
+                    </button>
+                    <button onclick="switchTab('audit')" id="tab-audit" class="py-4 px-2 text-gray-400 hover:text-white font-medium admin-only">
+                        Audit Logs
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-6 py-8">
+            <!-- Commands Tab -->
+            <div id="panel-commands" class="tab-panel">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Command Input -->
+                    <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                        <h2 class="text-xl font-bold mb-4 flex items-center">
+                            <svg class="w-6 h-6 mr-2 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                            Submit Command
+                        </h2>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2 text-gray-300">Command</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-3 text-green-400 font-mono">$</span>
+                                    <input type="text" id="command-input" placeholder="Enter shell command..."
+                                        class="w-full pl-8 pr-4 py-3 bg-gray-900 border border-gray-600 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                            </div>
+                            <button onclick="submitCommand()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold transition flex items-center justify-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                </svg>
+                                Execute Command
+                            </button>
+                        </div>
+                        
+                        <!-- Quick Commands -->
+                        <div class="mt-6">
+                            <h3 class="text-sm font-medium text-gray-400 mb-3">Quick Commands</h3>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="setCommand('ls -la')" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm font-mono">ls -la</button>
+                                <button onclick="setCommand('git status')" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm font-mono">git status</button>
+                                <button onclick="setCommand('cat /etc/passwd')" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm font-mono">cat /etc/passwd</button>
+                                <button onclick="setCommand('rm -rf /')" class="px-3 py-1 bg-red-900 hover:bg-red-800 rounded text-sm font-mono">rm -rf /</button>
+                                <button onclick="setCommand('mkfs.ext4 /dev/sda')" class="px-3 py-1 bg-red-900 hover:bg-red-800 rounded text-sm font-mono">mkfs.ext4</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Command Result -->
+                    <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                        <h2 class="text-xl font-bold mb-4 flex items-center">
+                            <svg class="w-6 h-6 mr-2 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Result
+                        </h2>
+                        <div id="command-result" class="bg-gray-900 rounded-lg p-4 min-h-[200px] font-mono text-sm">
+                            <p class="text-gray-500">Submit a command to see results...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Commands -->
+                <div class="mt-8 bg-gray-800 rounded-xl p-6 border border-gray-700">
+                    <h2 class="text-xl font-bold mb-4">Recent Commands</h2>
+                    <div id="recent-commands" class="space-y-2">
+                        <p class="text-gray-500">No commands submitted yet</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- History Tab -->
+            <div id="panel-history" class="tab-panel hidden">
+                <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xl font-bold">Command History</h2>
+                        <div class="flex space-x-2">
+                            <select id="history-filter" onchange="loadHistory()" class="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                                <option value="all">All Status</option>
+                                <option value="executed">Executed</option>
+                                <option value="accepted">Accepted</option>
+                                <option value="rejected">Rejected</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="text-left text-gray-400 border-b border-gray-700">
+                                    <th class="pb-3 pr-4">ID</th>
+                                    <th class="pb-3 pr-4">Command</th>
+                                    <th class="pb-3 pr-4">Status</th>
+                                    <th class="pb-3 pr-4">Credits</th>
+                                    <th class="pb-3">Timestamp</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-table" class="divide-y divide-gray-700">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rules Tab (Admin Only) -->
+            <div id="panel-rules" class="tab-panel hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <!-- Add Rule Form -->
+                    <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                        <h2 class="text-xl font-bold mb-4">Add New Rule</h2>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2 text-gray-300">Pattern (Regex)</label>
+                                <input type="text" id="rule-pattern" placeholder="e.g., rm\s+-rf\s+/"
+                                    class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2 text-gray-300">Action</label>
+                                <select id="rule-action" class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="AUTO_ACCEPT">AUTO_ACCEPT</option>
+                                    <option value="AUTO_REJECT">AUTO_REJECT</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2 text-gray-300">Priority (Lower = First)</label>
+                                <input type="number" id="rule-priority" value="10" min="1"
+                                    class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <button onclick="addRule()" class="w-full py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition">
+                                Add Rule
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Rules List -->
+                    <div class="lg:col-span-2 bg-gray-800 rounded-xl p-6 border border-gray-700">
+                        <h2 class="text-xl font-bold mb-4">Active Rules</h2>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="text-left text-gray-400 border-b border-gray-700">
+                                        <th class="pb-3 pr-4">Priority</th>
+                                        <th class="pb-3 pr-4">Pattern</th>
+                                        <th class="pb-3 pr-4">Action</th>
+                                        <th class="pb-3">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rules-table" class="divide-y divide-gray-700">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users Tab (Admin Only) -->
+            <div id="panel-users" class="tab-panel hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <!-- Add User Form -->
+                    <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                        <h2 class="text-xl font-bold mb-4">Create New User</h2>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2 text-gray-300">Username</label>
+                                <input type="text" id="new-username" placeholder="Enter username"
+                                    class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2 text-gray-300">Role</label>
+                                <select id="new-user-role" class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="member">Member</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2 text-gray-300">Initial Credits</label>
+                                <input type="number" id="new-user-credits" value="100" min="0"
+                                    class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <button onclick="createUser()" class="w-full py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition">
+                                Create User
+                            </button>
+                        </div>
+
+                        <!-- New User API Key Display -->
+                        <div id="new-api-key-display" class="hidden mt-4 p-4 bg-yellow-900 border border-yellow-600 rounded-lg">
+                            <p class="text-sm text-yellow-300 mb-2">⚠️ Save this API key - shown only once!</p>
+                            <code id="new-api-key" class="block bg-gray-900 p-2 rounded text-green-400 break-all"></code>
+                        </div>
+                    </div>
+
+                    <!-- Users List -->
+                    <div class="lg:col-span-2 bg-gray-800 rounded-xl p-6 border border-gray-700">
+                        <h2 class="text-xl font-bold mb-4">Registered Users</h2>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="text-left text-gray-400 border-b border-gray-700">
+                                        <th class="pb-3 pr-4">Username</th>
+                                        <th class="pb-3 pr-4">Role</th>
+                                        <th class="pb-3 pr-4">Credits</th>
+                                        <th class="pb-3 pr-4">Commands</th>
+                                        <th class="pb-3">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="users-table" class="divide-y divide-gray-700">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Audit Logs Tab (Admin Only) -->
+            <div id="panel-audit" class="tab-panel hidden">
+                <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xl font-bold">Audit Logs</h2>
+                        <button onclick="exportAuditLogs()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition">
+                            Export CSV
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="text-left text-gray-400 border-b border-gray-700">
+                                    <th class="pb-3 pr-4">Timestamp</th>
+                                    <th class="pb-3 pr-4">User</th>
+                                    <th class="pb-3 pr-4">Action</th>
+                                    <th class="pb-3 pr-4">Command</th>
+                                    <th class="pb-3">Details</th>
+                                </tr>
+                            </thead>
+                            <tbody id="audit-table" class="divide-y divide-gray-700">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Credit Adjustment Modal -->
+    <div id="credit-modal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-40">
+        <div class="bg-gray-800 rounded-xl p-6 w-full max-w-sm shadow-2xl border border-gray-700">
+            <h3 class="text-xl font-bold mb-4">Adjust Credits</h3>
+            <input type="hidden" id="credit-user-id">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2 text-gray-300">New Credit Amount</label>
+                    <input type="number" id="credit-amount" min="0"
+                        class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="flex space-x-3">
+                    <button onclick="closeCreditModal()" class="flex-1 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition">
+                        Cancel
+                    </button>
+                    <button onclick="saveCredits()" class="flex-1 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition">
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== DATABASE SIMULATION ====================
+        const DB = {
+            users: JSON.parse(localStorage.getItem('cg_users')) || [],
+            rules: JSON.parse(localStorage.getItem('cg_rules')) || [],
+            commands: JSON.parse(localStorage.getItem('cg_commands')) || [],
+            auditLogs: JSON.parse(localStorage.getItem('cg_audit')) || [],
+            
+            save() {
+                localStorage.setItem('cg_users', JSON.stringify(this.users));
+                localStorage.setItem('cg_rules', JSON.stringify(this.rules));
+                localStorage.setItem('cg_commands', JSON.stringify(this.commands));
+                localStorage.setItem('cg_audit', JSON.stringify(this.auditLogs));
+            },
+            
+            // Transaction simulation - all or nothing
+            transaction(operations) {
+                const backup = {
+                    users: JSON.parse(JSON.stringify(this.users)),
+                    rules: JSON.parse(JSON.stringify(this.rules)),
+                    commands: JSON.parse(JSON.stringify(this.commands)),
+                    auditLogs: JSON.parse(JSON.stringify(this.auditLogs))
+                };
+                
+                try {
+                    operations();
+                    this.save();
+                    return { success: true };
+                } catch (error) {
+                    // Rollback
+                    this.users = backup.users;
+                    this.rules = backup.rules;
+                    this.commands = backup.commands;
+                    this.auditLogs = backup.auditLogs;
+                    return { success: false, error: error.message };
+                }
+            }
+        };
+
+        // ==================== INITIALIZATION ====================
+        let currentUser = null;
+
+        function initializeSystem() {
+            // Seed default admin if no users exist
+            if (DB.users.length === 0) {
+                DB.users.push({
+                    id: 1,
+                    username: 'admin',
+                    apiKey: 'admin-key-12345',
+                    role: 'admin',
+                    credits: 1000,
+                    createdAt: new Date().toISOString()
+                });
+            }
+
+            // Seed default rules if none exist
+            if (DB.rules.length === 0) {
+                DB.rules = [
+                    { id: 1, pattern: 'rm\\s+-rf\\s+/', action: 'AUTO_REJECT', priority: 1 },
+                    { id: 2, pattern: 'mkfs', action: 'AUTO_REJECT', priority: 2 },
+                    { id: 3, pattern: ':(){ :|:& };:', action: 'AUTO_REJECT', priority: 3 },
+                    { id: 4, pattern: 'dd\\s+if=.*of=/dev/', action: 'AUTO_REJECT', priority: 4 },
+                    { id: 5, pattern: '^git\\s+(status|log|diff|branch)', action: 'AUTO_ACCEPT', priority: 10 },
+                    { id: 6, pattern: '^(ls|cat|pwd|whoami|date|echo)', action: 'AUTO_ACCEPT', priority: 11 },
+                    { id: 7, pattern: '^(grep|find|head|tail|wc)', action: 'AUTO_ACCEPT', priority: 12 }
+                ];
+            }
+
+            DB.save();
+        }
+
+        // ==================== AUTHENTICATION ====================
+        function handleLogin() {
+            const apiKey = document.getElementById('api-key-input').value.trim();
+            if (!apiKey) {
+                showToast('Please enter an API key', 'error');
+                return;
+            }
+
+            const user = DB.users.find(u => u.apiKey === apiKey);
+            if (!user) {
+                showToast('Invalid API key', 'error');
+                return;
+            }
+
+            currentUser = user;
+            addAuditLog('LOGIN', null, 'User logged in');
+            
+            document.getElementById('login-modal').classList.add('hidden');
+            document.getElementById('main-app').classList.remove('hidden');
+            
+            updateUI();
+            showToast(`Welcome, ${user.username}!`, 'success');
+        }
+
+        function handleLogout() {
+            addAuditLog('LOGOUT', null, 'User logged out');
+            currentUser = null;
+            document.getElementById('login-modal').classList.remove('hidden');
+            document.getElementById('main-app').classList.add('hidden');
+            document.getElementById('api-key-input').value = '';
+        }
+
+        // ==================== COMMAND PROCESSING ====================
+        function submitCommand() {
+            const commandInput = document.getElementById('command-input');
+            const command = commandInput.value.trim();
+            
+            if (!command) {
+                showToast('Please enter a command', 'error');
+                return;
+            }
+
+            if (!currentUser) {
+                showToast('Not authenticated', 'error');
+                return;
+            }
+
+            // Check credits
+            if (currentUser.credits <= 0) {
+                showToast('Insufficient credits', 'error');
+                displayResult(command, 'rejected', 'Insufficient credits');
+                return;
+            }
+
+            // Match against rules
+            const matchResult = matchRules(command);
+            
+            let status, message;
+            
+            if (matchResult.matched) {
+                if (matchResult.action === 'AUTO_ACCEPT') {
+                    status = 'executed';
+                    message = `Command executed successfully (mocked)\nMatched rule: ${matchResult.pattern}`;
+                } else {
+                    status = 'rejected';
+                    message = `Command rejected by rule: ${matchResult.pattern}`;
+                }
+            } else {
+                status = 'rejected';
+                message = 'No matching rule found - command rejected by default';
+            }
+
+            // Transaction: deduct credits, save command, add audit log
+            const result = DB.transaction(() => {
+                // Only deduct credits on successful execution
+                if (status === 'executed') {
+                    const userIndex = DB.users.findIndex(u => u.id === currentUser.id);
+                    if (userIndex === -1) throw new Error('User not found');
+                    DB.users[userIndex].credits -= 1;
+                    currentUser.credits -= 1;
+                }
+
+                // Save command record
+                const commandRecord = {
+                    id: DB.commands.length + 1,
+                    userId: currentUser.id,
+                    username: currentUser.username,
+                    command: command,
+                    status: status,
+                    creditsDeducted: status === 'executed' ? 1 : 0,
+                    matchedRule: matchResult.pattern || null,
+                    timestamp: new Date().toISOString()
+                };
+                DB.commands.push(commandRecord);
+
+                // Add audit log
+                DB.auditLogs.push({
+                    id: DB.auditLogs.length + 1,
+                    userId: currentUser.id,
+                    username: currentUser.username,
+                    action: status === 'executed' ? 'EXECUTE' : 'REJECT',
+                    command: command,
+                    details: message,
+                    timestamp: new Date().toISOString()
+                });
+            });
+
+            if (!result.success) {
+                showToast('Transaction failed: ' + result.error, 'error');
+                return;
+            }
+
+            displayResult(command, status, message);
+            updateUI();
+            commandInput.value = '';
+            showToast(status === 'executed' ? 'Command executed' : 'Command rejected', 
+                      status === 'executed' ? 'success' : 'error');
+        }
+
+        function matchRules(command) {
+            // Sort rules by priority
+            const sortedRules = [...DB.rules].sort((a, b) => a.priority - b.priority);
+            
+            for (const rule of sortedRules) {
+                try {
+                    const regex = new RegExp(rule.pattern, 'i');
+                    if (regex.test(command)) {
+                        return {
+                            matched: true,
+                            action: rule.action,
+                            pattern: rule.pattern
+                        };
+                    }
+                } catch (e) {
+                    console.error('Invalid regex:', rule.pattern);
+                }
+            }
+            
+            return { matched: false };
+        }
+
+        function displayResult(command, status, message) {
+            const resultDiv = document.getElementById('command-result');
+            const statusColors = {
+                executed: 'text-green-400',
+                accepted: 'text-blue-400',
+                rejected: 'text-red-400'
+            };
+
+            resultDiv.innerHTML = `
+                <div class="mb-2">
+                    <span class="text-gray-400">$</span> <span class="text-white">${escapeHtml(command)}</span>
+                </div>
+                <div class="mt-4 p-3 rounded ${status === 'executed' ? 'bg-green-900/30' : 'bg-red-900/30'}">
+                    <span class="${statusColors[status]} font-semibold uppercase">[${status}]</span>
+                    <p class="mt-2 text-gray-300">${escapeHtml(message)}</p>
+                </div>
+            `;
+        }
+
+        function setCommand(cmd) {
+            document.getElementById('command-input').value = cmd;
+        }
+
+        // ==================== RULES MANAGEMENT ====================
+        function addRule() {
+            if (currentUser?.role !== 'admin') {
+                showToast('Admin access required', 'error');
+                return;
+            }
+
+            const pattern = document.getElementById('rule-pattern').value.trim();
+            const action = document.getElementById('rule-action').value;
+            const priority = parseInt(document.getElementById('rule-priority').value) || 10;
+
+            if (!pattern) {
+                showToast('Pattern is required', 'error');
+                return;
+            }
+
+            // Validate regex
+            try {
+                new RegExp(pattern);
+            } catch (e) {
+                showToast('Invalid regex pattern', 'error');
+                return;
+            }
+
+            const rule = {
+                id: DB.rules.length + 1,
+                pattern,
+                action,
+                priority
+            };
+
+            DB.rules.push(rule);
+            DB.save();
+            addAuditLog('CREATE_RULE', null, `Created rule: ${pattern} -> ${action}`);
+
+            document.getElementById('rule-pattern').value = '';
+            loadRules();
+            showToast('Rule created', 'success');
+        }
+
+        function deleteRule(id) {
+            if (currentUser?.role !== 'admin') return;
+
+            const rule = DB.rules.find(r => r.id === id);
+            DB.rules = DB.rules.filter(r => r.id !== id);
+            DB.save();
+            addAuditLog('DELETE_RULE', null, `Deleted rule: ${rule?.pattern}`);
+            loadRules();
+            showToast('Rule deleted', 'success');
+        }
+
+        function loadRules() {
+            const tbody = document.getElementById('rules-table');
+            const sortedRules = [...DB.rules].sort((a, b) => a.priority - b.priority);
+
+            if (sortedRules.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-gray-500 text-center">No rules defined</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = sortedRules.map(rule => `
+                <tr class="hover:bg-gray-700/50">
+                    <td class="py-3 pr-4 font-mono">${rule.priority}</td>
+                    <td class="py-3 pr-4 font-mono text-sm">${escapeHtml(rule.pattern)}</td>
+                    <td class="py-3 pr-4">
+                        <span class="px-2 py-1 rounded text-sm ${rule.action === 'AUTO_ACCEPT' ? 'bg-green-600' : 'bg-red-600'}">
+                            ${rule.action}
+                        </span>
+                    </td>
+                    <td class="py-3">
+                        <button onclick="deleteRule(${rule.id})" class="text-red-400 hover:text-red-300">
+                            Delete
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // ==================== USER MANAGEMENT ====================
+        function createUser() {
+            if (currentUser?.role !== 'admin') {
+                showToast('Admin access required', 'error');
+                return;
+            }
+
+            const username = document.getElementById('new-username').value.trim();
+            const role = document.getElementById('new-user-role').value;
+            const credits = parseInt(document.getElementById('new-user-credits').value) || 100;
+
+            if (!username) {
+                showToast('Username is required', 'error');
+                return;
+            }
+
+            if (DB.users.some(u => u.username === username)) {
+                showToast('Username already exists', 'error');
+                return;
+            }
+
+            // Generate API key
+            const apiKey = 'key-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now().toString(36);
+
+            const user = {
+                id: DB.users.length + 1,
+                username,
+                apiKey,
+                role,
+                credits,
+                createdAt: new Date().toISOString()
+            };
+
+            DB.users.push(user);
+            DB.save();
+            addAuditLog('CREATE_USER', null, `Created user: ${username} (${role})`);
+
+            // Show API key (only once!)
+            document.getElementById('new-api-key').textContent = apiKey;
+            document.getElementById('new-api-key-display').classList.remove('hidden');
+
+            document.getElementById('new-username').value = '';
+            loadUsers();
+            showToast('User created', 'success');
+        }
+
+        function openCreditModal(userId) {
+            const user = DB.users.find(u => u.id === userId);
+            if (!user) return;
+
+            document.getElementById('credit-user-id').value = userId;
+            document.getElementById('credit-amount').value = user.credits;
+            document.getElementById('credit-modal').classList.remove('hidden');
+            document.getElementById('credit-modal').classList.add('flex');
+        }
+
+        function closeCreditModal() {
+            document.getElementById('credit-modal').classList.add('hidden');
+            document.getElementById('credit-modal').classList.remove('flex');
+        }
+
+        function saveCredits() {
+            const userId = parseInt(document.getElementById('credit-user-id').value);
+            const amount = parseInt(document.getElementById('credit-amount').value);
+
+            const userIndex = DB.users.findIndex(u => u.id === userId);
+            if (userIndex === -1) return;
+
+            const oldCredits = DB.users[userIndex].credits;
+            DB.users[userIndex].credits = amount;
+            DB.save();
+
+            if (currentUser && currentUser.id === userId) {
+                currentUser.credits = amount;
+            }
+
+            addAuditLog('ADJUST_CREDITS', null, `Adjusted credits for ${DB.users[userIndex].username}: ${oldCredits} -> ${amount}`);
+
+            closeCreditModal();
+            loadUsers();
+            updateUI();
+            showToast('Credits updated', 'success');
+        }
+
+        function loadUsers() {
+            const tbody = document.getElementById('users-table');
+
+            if (DB.users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-gray-500 text-center">No users</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = DB.users.map(user => {
+                const commandCount = DB.commands.filter(c => c.userId === user.id).length;
+                return `
+                    <tr class="hover:bg-gray-700/50">
+                        <td class="py-3 pr-4 font-medium">${escapeHtml(user.username)}</td>
+                        <td class="py-3 pr-4">
+                            <span class="px-2 py-1 rounded text-sm ${user.role === 'admin' ? 'bg-purple-600' : 'bg-blue-600'}">
+                                ${user.role}
+                            </span>
+                        </td>
+                        <td class="py-3 pr-4 font-mono">${user.credits}</td>
+                        <td class="py-3 pr-4">${commandCount}</td>
+                        <td class="py-3 space-x-2">
+                            <button onclick="openCreditModal(${user.id})" class="text-blue-400 hover:text-blue-300">
+                                Adjust Credits
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // ==================== HISTORY & AUDIT ====================
+        function loadHistory() {
+            const tbody = document.getElementById('history-table');
+            const filter = document.getElementById('history-filter').value;
+            
+            let commands = currentUser?.role === 'admin' 
+                ? DB.commands 
+                : DB.commands.filter(c => c.userId === currentUser?.id);
+
+            if (filter !== 'all') {
+                commands = commands.filter(c => c.status === filter);
+            }
+
+            commands = commands.slice().reverse();
+
+            if (commands.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-gray-500 text-center">No commands found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = commands.map(cmd => `
+                <tr class="hover:bg-gray-700/50">
+                    <td class="py-3 pr-4">#${cmd.id}</td>
+                    <td class="py-3 pr-4 font-mono text-sm max-w-xs truncate">${escapeHtml(cmd.command)}</td>
+                    <td class="py-3 pr-4">
+                        <span class="px-2 py-1 rounded text-sm text-white status-${cmd.status}">
+                            ${cmd.status}
+                        </span>
+                    </td>
+                    <td class="py-3 pr-4">${cmd.creditsDeducted ? '-1' : '0'}</td>
+                    <td class="py-3 text-gray-400 text-sm">${formatDate(cmd.timestamp)}</td>
+                </tr>
+            `).join('');
+
+            // Update recent commands on command tab
+            const recentDiv = document.getElementById('recent-commands');
+            const recentCommands = commands.slice(0, 5);
+            
+            if (recentCommands.length === 0) {
+                recentDiv.innerHTML = '<p class="text-gray-500">No commands submitted yet</p>';
+            } else {
+                recentDiv.innerHTML = recentCommands.map(cmd => `
+                    <div class="flex items-center justify-between py-2 px-3 bg-gray-700/50 rounded">
+                        <span class="font-mono text-sm">${escapeHtml(cmd.command)}</span>
+                        <span class="px-2 py-1 rounded text-xs text-white status-${cmd.status}">
+                            ${cmd.status}
+                        </span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function loadAuditLogs() {
+            const tbody = document.getElementById('audit-table');
+            const logs = [...DB.auditLogs].reverse();
+
+            if (logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-gray-500 text-center">No audit logs</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = logs.map(log => `
+                <tr class="hover:bg-gray-700/50">
+                    <td class="py-3 pr-4 text-sm text-gray-400">${formatDate(log.timestamp)}</td>
+                    <td class="py-3 pr-4">${escapeHtml(log.username)}</td>
+                    <td class="py-3 pr-4">
+                        <span class="px-2 py-1 bg-gray-600 rounded text-sm">${log.action}</span>
+                    </td>
+                    <td class="py-3 pr-4 font-mono text-sm max-w-xs truncate">${escapeHtml(log.command || '-')}</td>
+                    <td class="py-3 text-sm text-gray-400 max-w-xs truncate">${escapeHtml(log.details)}</td>
+                </tr>
+            `).join('');
+        }
+
+        function addAuditLog(action, command, details) {
+            if (!currentUser) return;
+            
+            DB.auditLogs.push({
+                id: DB.auditLogs.length + 1,
+                userId: currentUser.id,
+                username: currentUser.username,
+                action,
+                command,
+                details,
+                timestamp: new Date().toISOString()
+            });
+            DB.save();
+        }
+
+        function exportAuditLogs() {
+            const headers = ['Timestamp', 'User', 'Action', 'Command', 'Details'];
+            const rows = DB.auditLogs.map(log => [
+                log.timestamp,
+                log.username,
+                log.action,
+                log.command || '',
+                log.details
+            ]);
+
+            const csv = [headers, ...rows]
+                .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+                .join('\n');
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `audit-logs-${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showToast('Audit logs exported', 'success');
+        }
+
+        // ==================== UI HELPERS ====================
+        function switchTab(tabName) {
+            // Hide all panels
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+            // Remove active from all tabs
+            document.querySelectorAll('nav button').forEach(t => {
+                t.classList.remove('tab-active');
+                t.classList.add('text-gray-400');
+            });
+
+            // Show selected panel
+            document.getElementById(`panel-${tabName}`).classList.remove('hidden');
+            // Activate tab
+            const tab = document.getElementById(`tab-${tabName}`);
+            tab.classList.add('tab-active');
+            tab.classList.remove('text-gray-400');
+
+            // Load data for the tab
+            if (tabName === 'history') loadHistory();
+            if (tabName === 'rules') loadRules();
+            if (tabName === 'users') loadUsers();
+            if (tabName === 'audit') loadAuditLogs();
+        }
+
+        function updateUI() {
+            if (!currentUser) return;
+
+            // Update header
+            document.getElementById('current-user').textContent = currentUser.username;
+            document.getElementById('credit-display').textContent = currentUser.credits;
+            document.getElementById('role-badge').textContent = currentUser.role;
+            document.getElementById('role-badge').className = `px-3 py-1 rounded-full text-sm font-medium ${
+                currentUser.role === 'admin' ? 'bg-purple-600' : 'bg-blue-600'
+            }`;
+
+            // Show/hide admin elements
+            document.querySelectorAll('.admin-only').forEach(el => {
+                el.style.display = currentUser.role === 'admin' ? 'block' : 'none';
+            });
+
+            // Load history
+            loadHistory();
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const colors = {
+                success: 'bg-green-600',
+                error: 'bg-red-600',
+                info: 'bg-blue-600'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `toast px-4 py-3 rounded-lg shadow-lg ${colors[type]} text-white flex items-center space-x-2`;
+            toast.innerHTML = `
+                <span>${escapeHtml(message)}</span>
+            `;
+
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function formatDate(isoString) {
+            const date = new Date(isoString);
+            return date.toLocaleString();
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ==================== INITIALIZE ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeSystem();
+            
+            // Allow Enter key to submit command
+            document.getElementById('command-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') submitCommand();
+            });
+            
+            // Allow Enter key to login
+            document.getElementById('api-key-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleLogin();
+            });
+        });
+    </script>
+</body>
+</html>

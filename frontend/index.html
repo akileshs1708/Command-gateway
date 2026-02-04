@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Command Gateway System</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- Login Modal -->
+    <div id="login-modal" class="modal-backdrop">
+        <div class="modal">
+            <div class="modal-icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+            </div>
+            <h1>Command Gateway</h1>
+            <p>Enter your API key to continue</p>
+            
+            <div class="form-group">
+                <label for="api-key-input">API Key</label>
+                <input type="text" id="api-key-input" placeholder="Enter your API key">
+            </div>
+            
+            <button onclick="handleLogin()" class="btn btn-primary btn-block">
+                Authenticate
+            </button>
+            
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="main-app" class="hidden">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="header-left">
+                    <div class="header-logo">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <div class="header-title">
+                        <h1>Command Gateway</h1>
+                        <p>Secure Command Execution System</p>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="user-info">
+                        <span class="label">Logged in as</span>
+                        <span class="value" id="current-user">-</span>
+                    </div>
+                    <div class="credit-box">
+                        <span class="label">Credits</span>
+                        <span class="value" id="credit-display">0</span>
+                    </div>
+                    <span id="role-badge" class="role-badge member">member</span>
+                    <button onclick="handleLogout()" class="btn btn-danger btn-sm">Logout</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="nav">
+            <div class="nav-content">
+                <button onclick="switchTab('commands')" id="tab-commands" class="nav-tab active">Commands</button>
+                <button onclick="switchTab('history')" id="tab-history" class="nav-tab">History</button>
+                <button onclick="switchTab('rules')" id="tab-rules" class="nav-tab admin-only">Rules</button>
+                <button onclick="switchTab('users')" id="tab-users" class="nav-tab admin-only">Users</button>
+                <button onclick="switchTab('audit')" id="tab-audit" class="nav-tab admin-only">Audit Logs</button>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Commands Panel -->
+            <div id="panel-commands" class="tab-panel">
+                <div class="grid grid-2">
+                    <!-- Command Input -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: #3b82f6;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                </svg>
+                                Submit Command
+                            </h2>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="command-input">Command</label>
+                            <div class="command-input-wrapper">
+                                <span class="prefix">$</span>
+                                <input type="text" id="command-input" placeholder="Enter shell command...">
+                            </div>
+                        </div>
+                        
+                        <button onclick="submitCommand()" class="btn btn-primary btn-block submit-btn">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                            Execute Command
+                        </button>
+                        
+                        <div class="quick-commands">
+                            <h3>Quick Commands</h3>
+                            <div class="quick-commands-list">
+                                <button onclick="setCommand('ls -la')" class="quick-cmd">ls -la</button>
+                                <button onclick="setCommand('git status')" class="quick-cmd">git status</button>
+                                <button onclick="setCommand('pwd')" class="quick-cmd">pwd</button>
+                                <button onclick="setCommand('whoami')" class="quick-cmd">whoami</button>
+                                <button onclick="setCommand('cat /etc/passwd')" class="quick-cmd">cat /etc/passwd</button>
+                                <button onclick="setCommand('rm -rf /')" class="quick-cmd danger">rm -rf /</button>
+                                <button onclick="setCommand('mkfs.ext4 /dev/sda')" class="quick-cmd danger">mkfs.ext4</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Command Result -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: #10b981;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                Result
+                            </h2>
+                        </div>
+                        <div id="command-result" class="result-box">
+                            <p class="placeholder">Submit a command to see results...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Commands -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Recent Commands</h2>
+                    </div>
+                    <div id="recent-commands" class="recent-list">
+                        <p class="empty-state">No commands submitted yet</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- History Panel -->
+            <div id="panel-history" class="tab-panel hidden">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Command History</h2>
+                        <select id="history-filter" onchange="loadHistory()">
+                            <option value="all">All Status</option>
+                            <option value="executed">Executed</option>
+                            <option value="accepted">Accepted</option>
+                            <option value="rejected">Rejected</option>
+                        </select>
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Command</th>
+                                    <th>Status</th>
+                                    <th>Credits</th>
+                                    <th>Timestamp</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-table">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rules Panel (Admin) -->
+            <div id="panel-rules" class="tab-panel hidden">
+                <div class="grid grid-3">
+                    <!-- Add Rule Form -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Add New Rule</h2>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="rule-pattern">Pattern (Regex)</label>
+                            <input type="text" id="rule-pattern" placeholder="e.g., rm\s+-rf\s+/">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="rule-action">Action</label>
+                            <select id="rule-action">
+                                <option value="AUTO_ACCEPT">AUTO_ACCEPT</option>
+                                <option value="AUTO_REJECT">AUTO_REJECT</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="rule-priority">Priority (Lower = First)</label>
+                            <input type="number" id="rule-priority" value="10" min="1">
+                        </div>
+                        
+                        <button onclick="addRule()" class="btn btn-success btn-block">Add Rule</button>
+                    </div>
+
+                    <!-- Rules List -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Active Rules</h2>
+                        </div>
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Priority</th>
+                                        <th>Pattern</th>
+                                        <th>Action</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rules-table">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users Panel (Admin) -->
+            <div id="panel-users" class="tab-panel hidden">
+                <div class="grid grid-3">
+                    <!-- Add User Form -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Create New User</h2>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="new-username">Username</label>
+                            <input type="text" id="new-username" placeholder="Enter username">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="new-user-role">Role</label>
+                            <select id="new-user-role">
+                                <option value="member">Member</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="new-user-credits">Initial Credits</label>
+                            <input type="number" id="new-user-credits" value="100" min="0">
+                        </div>
+                        
+                        <button onclick="createUser()" class="btn btn-success btn-block">Create User</button>
+
+                        <!-- New User API Key Display -->
+                        <div id="new-api-key-display" class="alert warning hidden">
+                            <p>⚠️ Save this API key - shown only once!</p>
+                            <code id="new-api-key"></code>
+                        </div>
+                    </div>
+
+                    <!-- Users List -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Registered Users</h2>
+                        </div>
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Username</th>
+                                        <th>Role</th>
+                                        <th>Credits</th>
+                                        <th>Commands</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="users-table">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Audit Logs Panel (Admin) -->
+            <div id="panel-audit" class="tab-panel hidden">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Audit Logs</h2>
+                        <button onclick="exportAuditLogs()" class="btn btn-primary btn-sm">Export CSV</button>
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>User</th>
+                                    <th>Action</th>
+                                    <th>Command</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody id="audit-table">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Credit Adjustment Modal -->
+    <div id="credit-modal" class="modal-backdrop hidden">
+        <div class="modal">
+            <h3 style="margin-bottom: 1rem;">Adjust Credits</h3>
+            <input type="hidden" id="credit-user-id">
+            
+            <div class="form-group">
+                <label for="credit-amount">New Credit Amount</label>
+                <input type="number" id="credit-amount" min="0">
+            </div>
+            
+            <div style="display: flex; gap: 0.75rem;">
+                <button onclick="closeCreditModal()" class="btn btn-secondary" style="flex: 1;">Cancel</button>
+                <button onclick="saveCredits()" class="btn btn-primary" style="flex: 1;">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
