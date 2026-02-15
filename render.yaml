@@ -1,0 +1,36 @@
+# render.yaml - Render Blueprint for Command Gateway
+# This file defines the infrastructure as code for Render deployment
+
+services:
+  # Backend API Service (Web Service)
+  - type: web
+    name: command-gateway-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: DATABASE_PATH
+        value: /tmp/command_gateway.db
+      - key: ADMIN_API_KEY
+        generateValue: true  # Auto-generate secure admin key
+      - key: ALLOWED_ORIGINS
+        value: "*"  # Update with your frontend URL after deployment
+    healthCheckPath: /health
+    autoDeploy: true
+
+  # Frontend Static Site
+  - type: web
+    name: command-gateway-frontend
+    runtime: static
+    buildCommand: echo "No build needed"
+    staticPublishPath: ./frontend
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

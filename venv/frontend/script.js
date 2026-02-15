@@ -1,10 +1,7 @@
 // frontend/script.js - API calls & UI updates
 
 // ==================== Configuration ====================
-// Auto-detect API URL: use same origin in production, localhost in development
-const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:8000'
-    : window.location.origin;  // Use same origin when deployed
+const API_BASE_URL = 'http://localhost:8000';
 
 // ==================== State ====================
 let currentUser = null;
@@ -35,7 +32,7 @@ async function apiRequest(endpoint, options = {}) {
         return data;
     } catch (error) {
         if (error.message.includes('Failed to fetch')) {
-            throw new Error('Cannot connect to server. Make sure the backend is running.');
+            throw new Error('Cannot connect to server. Make sure the backend is running on port 8000.');
         }
         throw error;
     }
@@ -287,7 +284,7 @@ async function loadHistory() {
                 <td>#${cmd.id}</td>
                 <td class="mono truncate" title="${escapeHtml(cmd.command_text)}">${escapeHtml(cmd.command_text)}</td>
                 <td><span class="status-badge ${cmd.status}">${cmd.status}</span></td>
-                <td>${cmd.credits_deducted ? '-1' : '0'}</td>
+                <td>${cmd.credits_deducted ? '-2' : '0'}</td>
                 <td>${formatDate(cmd.created_at)}</td>
             </tr>
         `).join('');
