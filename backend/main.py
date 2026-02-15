@@ -1,9 +1,15 @@
+# backend/main.py
+# FastAPI app entry point
+
 from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from typing import Optional, List
 import uvicorn
+import os
 
 from database import get_db, init_db, engine, Base
 from models import User, Rule, Command, AuditLog
@@ -22,9 +28,12 @@ app = FastAPI(
 )
 
 # CORS middleware for frontend
+# Get allowed origins from environment variable or allow all
+ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', '*').split(',')
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify exact origins
+    allow_origins=ALLOWED_ORIGINS if ALLOWED_ORIGINS != ['*'] else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -72,14 +81,16 @@ async def startup_event():
         admin = db.query(User).filter(User.username == "admin").first()
         if not admin:
             # Create default admin user
+            # In production, use environment variable for API key
+            admin_api_key = os.environ.get('ADMIN_API_KEY', 'admin-key-12345')
             admin = User(
                 username="admin",
-                api_key="admin-key-12345",
+                api_key=admin_api_key,
                 role="admin",
                 credits=1000
             )
             db.add(admin)
-            print("Created default admin user (API key: admin-key-12345)")
+            print(f"Created default admin user (API key: {admin_api_key})")
         
         # Check if rules exist
         rule_count = db.query(Rule).count()
@@ -346,9 +357,9 @@ async def health_check():
     return {"status": "healthy", "service": "command-gateway"}
 
 
-@app.get("/", tags=["System"])
-async def root():
-    """Root endpoint with API information."""
+@app.get("/api", tags=["System"])
+async def api_root():
+    """API root endpoint with API information."""
     return {
         "name": "Command Gateway API",
         "version": "1.0.0",
@@ -357,12 +368,28 @@ async def root():
     }
 
 
+# ==================== Serve Frontend (for combined deployment) ====================
+
+# Check if frontend directory exists (for combined deployment)
+FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+
+if os.path.exists(FRONTEND_DIR):
+    # Serve static files
+    app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
+    
+    @app.get("/", tags=["Frontend"])
+    async def serve_frontend():
+        """Serve the frontend application."""
+        return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+
+
 # ==================== Run Server ====================
 
 if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=8000,
+        port=port,
         reload=True
     )

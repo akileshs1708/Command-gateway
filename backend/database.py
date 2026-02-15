@@ -6,14 +6,16 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 
-# Database file path (in project root)
-DATABASE_URL = "sqlite:///../command_gateway.db"
+# Database file path - use environment variable or default
+# For Render: use /tmp for writable storage or persistent disk
+DATABASE_PATH = os.environ.get('DATABASE_PATH', './command_gateway.db')
+DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
 
 # Create engine with check_same_thread=False for SQLite
 engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False},
-    echo=True  # Set to False in production
+    echo=False  # Set to False in production
 )
 
 # Session factory
