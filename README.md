@@ -187,7 +187,3 @@ rm command_gateway.db
 ```
 
 The database will be recreated on next server start.
-
-## 📝 License
-
-MIT License
